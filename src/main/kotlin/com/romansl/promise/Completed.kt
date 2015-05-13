@@ -7,45 +7,51 @@ public abstract class Completed<T> : State<T>() {
         throw IllegalStateException()
     }
 
-    override fun <Result> then(tcs: Completion<Result>, continuation: State<T>.() -> Result, executor: Executor) {
+    override fun <Result> then(promise: Promise<Result>, continuation: State<T>.() -> Result, executor: Executor) {
         executor.execute {
             try {
-                tcs.state = Succeeded(continuation())
+                val newState = Succeeded(continuation())
+                promise.state.getAndSet(newState).moveToState(newState)
             } catch (e: Exception) {
-                tcs.state = Failed(e)
+                val newState = Failed<Result>(e)
+                promise.state.getAndSet(newState).moveToState(newState)
             }
         }
     }
 
-    override fun <Result> immediateThen(tcs: Completion<Result>, continuation: State<T>.() -> Result) {
+    override fun <Result> immediateThen(promise: Promise<Result>, continuation: State<T>.() -> Result) {
         try {
-            tcs.state = Succeeded(continuation())
+            val newState = Succeeded(continuation())
+            promise.state.getAndSet(newState).moveToState(newState)
         } catch (e: Exception) {
-            tcs.state = Failed(e)
+            val newState = Failed<Result>(e)
+            promise.state.getAndSet(newState).moveToState(newState)
         }
     }
 
-    override fun <Result> after(tcs: Completion<Result>, continuation: State<T>.() -> Promise<Result>, executor: Executor) {
+    override fun <Result> after(promise: Promise<Result>, continuation: State<T>.() -> Promise<Result>, executor: Executor) {
         executor.execute {
             try {
                 val task = continuation()
                 task.then {
-                    tcs.state = this
+                    promise.state.getAndSet(this).moveToState(this)
                 }
             } catch (e: Exception) {
-                tcs.state = Failed(e)
+                val newState = Failed<Result>(e)
+                promise.state.getAndSet(newState).moveToState(newState)
             }
         }
     }
 
-    override fun <Result> immediateAfter(tcs: Completion<Result>, continuation: State<T>.() -> Promise<Result>) {
+    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: State<T>.() -> Promise<Result>) {
         try {
             val task = continuation()
             task.then {
-                tcs.state = this
+                promise.state.getAndSet(this).moveToState(this)
             }
         } catch (e: Exception) {
-            tcs.state = Failed(e)
+            val newState = Failed<Result>(e)
+            promise.state.getAndSet(newState).moveToState(newState)
         }
     }
 }

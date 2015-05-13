@@ -7,7 +7,7 @@ fun main(args: Array<String>) {
 
     val tcs = Promise.create<Int>()
 
-    tcs.task.then {
+    tcs.promise.then {
         println("Then")
         try {
             println("result: $result")

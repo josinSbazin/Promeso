@@ -5,41 +5,39 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
 public class Promise<T> private(initState: State<T>) {
-    val state = AtomicReference<State<T>>()
+    internal val state = AtomicReference<State<T>>()
 
     init {
         state.set(initState)
     }
 
     public fun <Result> then(continuation: State<T>.() -> Result): Promise<Result> {
-        val tcs = Promise.create<Result>()
-        state.get().immediateThen(tcs, continuation)
-        return tcs.task
+        val promise = Promise<Result>(Pending())
+        state.get().immediateThen(promise, continuation)
+        return promise
     }
 
     public fun <Result> then(executor: Executor, continuation: State<T>.() -> Result): Promise<Result> {
-        val tcs = Promise.create<Result>()
-        state.get().then(tcs, continuation, executor)
-        return tcs.task
+        val promise = Promise<Result>(Pending())
+        state.get().then(promise, continuation, executor)
+        return promise
     }
 
     public fun <Result> after(continuation: State<T>.() -> Promise<Result>): Promise<Result> {
-        val tcs = Promise.create<Result>()
-        state.get().immediateAfter(tcs, continuation)
-        return tcs.task
+        val promise = Promise<Result>(Pending())
+        state.get().immediateAfter(promise, continuation)
+        return promise
     }
 
     public fun <Result> after(executor: Executor, continuation: State<T>.() -> Promise<Result>): Promise<Result> {
-        val tcs = Promise.create<Result>()
-        state.get().after(tcs, continuation, executor)
-        return tcs.task
+        val promise = Promise<Result>(Pending())
+        state.get().after(promise, continuation, executor)
+        return promise
     }
 
     companion object {
         platformStatic
-        public fun <Result> create(): Completion<Result> {
-            return Completion(Promise(Pending()))
-        }
+        public fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
 
         platformStatic
         public fun <Result> succeeded(value: Result): Promise<Result> = Promise(Succeeded(value))
@@ -57,7 +55,7 @@ public class Promise<T> private(initState: State<T>) {
                     tcs.error = e
                 }
             }
-            return tcs.task
+            return tcs.promise
         }
     }
 }
