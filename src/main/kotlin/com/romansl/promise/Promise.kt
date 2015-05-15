@@ -11,25 +11,25 @@ public class Promise<T> private(initState: State<T>) {
         state.set(initState)
     }
 
-    public fun <Result> then(continuation: State<T>.() -> Result): Promise<Result> {
+    public fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
         state.get().immediateThen(promise, continuation)
         return promise
     }
 
-    public fun <Result> then(executor: Executor, continuation: State<T>.() -> Result): Promise<Result> {
+    public fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
         state.get().then(promise, continuation, executor)
         return promise
     }
 
-    public fun <Result> after(continuation: State<T>.() -> Promise<Result>): Promise<Result> {
+    public fun <Result> after(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         state.get().immediateAfter(promise, continuation)
         return promise
     }
 
-    public fun <Result> after(executor: Executor, continuation: State<T>.() -> Promise<Result>): Promise<Result> {
+    public fun <Result> after(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         state.get().after(promise, continuation, executor)
         return promise

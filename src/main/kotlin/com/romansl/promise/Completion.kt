@@ -5,12 +5,12 @@ public class Completion<Result> internal(public val promise: Promise<Result>) {
         get() = throw AssertionError("Write-only property")
         set(src) {
             val state = Succeeded(src)
-            promise.state.getAndSet(state).moveToState(state)
+            promise.state.getAndSet(state).complete(state)
         }
     public var error: Exception
         get() = throw AssertionError("Write-only property")
         set(src) {
             val state = Failed<Result>(src)
-            promise.state.getAndSet(state).moveToState(state)
+            promise.state.getAndSet(state).complete(state)
         }
 }
