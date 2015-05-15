@@ -7,9 +7,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 public class PromiseTest: TestCase() {
-    //private val executor = Executor { it.run() }
-    //private val executor = Executors.newFixedThreadPool(10)
-    private val executor = Executors.newSingleThreadExecutor()
 
     private fun assertThrows(expected: Throwable?, block: () -> Unit) {
         try {
@@ -120,29 +117,37 @@ public class PromiseTest: TestCase() {
     public fun testAfterAsynchronous1() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
+        val executor = Executors.newCachedThreadPool()
 
         val promise = Promise.succeeded(10)
         promise.after(executor) {
+            //println("1")
+            Thread.sleep(0)
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
         }.after<Int>(executor) {
+            //println("2")
             assertEquals(21, result)
             throw exception
         }.then(executor) {
+            println("3")
             assertThrows(exception) {
                 result
             }
         }.then {
+            println("4")
             latch.countDown()
         }
 
         latch.await()
+        executor.shutdown()
     }
 
     public fun testAfterAsynchronous2() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
+        val executor = Executors.newCachedThreadPool()
 
         val completion = Promise.create<Int>()
         completion.promise.after(executor) {
@@ -162,5 +167,6 @@ public class PromiseTest: TestCase() {
         completion.result = 10
 
         latch.await()
+        executor.shutdownNow()
     }
 }

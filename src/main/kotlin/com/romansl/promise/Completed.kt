@@ -31,12 +31,16 @@ public abstract class Completed<T> : State<T>() {
 
     override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
         executor.execute {
+            println("C-after-execute")
             try {
+                println("C-after-try")
                 val task = continuation()
                 task.then {
+                    println("C-after-then")
                     promise.state.getAndSet(this).complete(this)
                 }
             } catch (e: Exception) {
+                println("C-after-catch")
                 val newState = Failed<Result>(e)
                 promise.state.getAndSet(newState).complete(newState)
             }
