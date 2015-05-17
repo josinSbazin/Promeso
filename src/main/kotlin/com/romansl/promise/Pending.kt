@@ -4,8 +4,6 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 
 public class Pending<T>: State<T>() {
-    override val result: T
-        get() = throw IllegalStateException()
     private val continuations = AtomicReference<Node<T>?>();
 
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
@@ -36,18 +34,13 @@ public class Pending<T>: State<T>() {
 
     override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
         add {
-            println("P-after-add")
             executor.execute {
-                println("P-after-execute")
                 try {
-                    println("P-after-try")
                     val task = it.continuation()
                     task.then {
-                        println("P-after-then")
                         promise.state.getAndSet(this).complete(this)
                     }
                 } catch (e: Exception) {
-                    println("P-after-catch")
                     val newState = Failed<Result>(e)
                     promise.state.getAndSet(newState).complete(newState)
                 }

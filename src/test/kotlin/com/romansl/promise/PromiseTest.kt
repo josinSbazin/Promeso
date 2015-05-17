@@ -22,7 +22,7 @@ public class PromiseTest: TestCase() {
     public fun testSucceeded() {
         val promise = Promise.succeeded(10)
         assertTrue(promise.state.get() is Succeeded<*>)
-        assertEquals(10, promise.state.get().result)
+        assertEquals(10, (promise.state.get() as Completed).result)
     }
 
     public fun testFailed() {
@@ -30,7 +30,7 @@ public class PromiseTest: TestCase() {
         val promise = Promise.failed<Int>(exception)
         assertTrue(promise.state.get() is Failed<*>)
         assertThrows(exception) {
-            promise.state.get().result
+            (promise.state.get() as Completed).result
         }
     }
 
@@ -121,22 +121,17 @@ public class PromiseTest: TestCase() {
 
         val promise = Promise.succeeded(10)
         promise.after(executor) {
-            //println("1")
-            Thread.sleep(0)
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
         }.after<Int>(executor) {
-            //println("2")
             assertEquals(21, result)
             throw exception
         }.then(executor) {
-            println("3")
             assertThrows(exception) {
                 result
             }
         }.then {
-            println("4")
             latch.countDown()
         }
 
