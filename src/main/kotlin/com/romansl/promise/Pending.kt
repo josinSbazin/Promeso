@@ -1,13 +1,13 @@
 package com.romansl.promise
 
 import java.util.concurrent.Executor
-import java.util.concurrent.atomic.AtomicReference
 
 public class Pending<T>: State<T>() {
-    private val continuations = AtomicReference<Node<T>?>();
+    private val lock = Object()
+    private var continuations: Node<T>? = null
 
-    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
-        add {
+    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) = synchronized(lock) {
+        continuations = Node(continuations) {
             executor.execute {
                 try {
                     val newState = Succeeded(it.continuation())
@@ -20,8 +20,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) {
-        add {
+    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) = synchronized(lock) {
+        continuations = Node(continuations) {
             try {
                 val newState = Succeeded(it.continuation())
                 promise.state.getAndSet(newState).complete(newState)
@@ -32,8 +32,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
-        add {
+    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) = synchronized(lock) {
+        continuations = Node(continuations) {
             executor.execute {
                 try {
                     val task = it.continuation()
@@ -48,8 +48,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
-        add {
+    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) = synchronized(lock) {
+        continuations = Node(continuations) {
             try {
                 val task = it.continuation()
                 task.then {
@@ -63,7 +63,12 @@ public class Pending<T>: State<T>() {
     }
 
     override fun complete(newState: Completed<T>) {
-        var node = continuations.getAndSet(null)
+        var node = synchronized(lock) {
+            val tmp = continuations
+            continuations = null
+            tmp
+        }
+
         while (true) {
             val localNode = node
             if (localNode == null)
@@ -73,16 +78,5 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    // A nonblocking stack.
-    private fun add(item: (Completed<T>) -> Unit) {
-        val newHead = Node<T>(null, item);
-        var oldHead: Node<T>?;
-        val head = continuations
-        do {
-            oldHead = head.get();
-            newHead.next = oldHead;
-        } while (!head.compareAndSet(oldHead, newHead));
-    }
-
-    private class Node<T>(var next: Node<T>?, val body: (Completed<T>) -> Unit)
+    private class Node<T>(val next: Node<T>?, val body: (Completed<T>) -> Unit)
 }
