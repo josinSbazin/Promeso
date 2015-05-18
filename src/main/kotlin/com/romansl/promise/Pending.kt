@@ -21,7 +21,8 @@ class Pending<T>: State<T>() {
     }
 
     synchronized
-    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) {
+    override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
+        val promise = Promise<Result>(Pending())
         continuations = Node(continuations) {
             try {
                 val newState = Succeeded(it.continuation())
@@ -31,6 +32,7 @@ class Pending<T>: State<T>() {
                 promise.state.getAndSet(newState).complete(newState)
             }
         }
+        return promise
     }
 
     synchronized

@@ -19,13 +19,11 @@ public abstract class Completed<T> : State<T>() {
         }
     }
 
-    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) {
-        try {
-            val newState = Succeeded(continuation())
-            promise.state.getAndSet(newState).complete(newState)
+    override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
+        return try {
+            Promise(Succeeded(continuation()))
         } catch (e: Exception) {
-            val newState = Failed<Result>(e)
-            promise.state.getAndSet(newState).complete(newState)
+            Promise(Failed(e))
         }
     }
 

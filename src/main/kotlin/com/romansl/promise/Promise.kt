@@ -4,7 +4,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
-public class Promise<T> private(initState: State<T>) {
+public class Promise<T> internal (initState: State<T>) {
     internal val state = AtomicReference<State<T>>()
 
     init {
@@ -12,9 +12,7 @@ public class Promise<T> private(initState: State<T>) {
     }
 
     public fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
-        val promise = Promise<Result>(Pending())
-        state.get().immediateThen(promise, continuation)
-        return promise
+        return state.get().immediateThen(continuation)
     }
 
     public fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
