@@ -2,11 +2,11 @@ package com.romansl.promise
 
 import java.util.concurrent.Executor
 
-public class Pending<T>: State<T>() {
-    private val lock = Object()
+class Pending<T>: State<T>() {
     private var continuations: Node<T>? = null
 
-    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) = synchronized(lock) {
+    synchronized
+    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         continuations = Node(continuations) {
             executor.execute {
                 try {
@@ -20,7 +20,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) = synchronized(lock) {
+    synchronized
+    override fun <Result> immediateThen(promise: Promise<Result>, continuation: Completed<T>.() -> Result) {
         continuations = Node(continuations) {
             try {
                 val newState = Succeeded(it.continuation())
@@ -32,7 +33,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) = synchronized(lock) {
+    synchronized
+    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
         continuations = Node(continuations) {
             executor.execute {
                 try {
@@ -48,7 +50,8 @@ public class Pending<T>: State<T>() {
         }
     }
 
-    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) = synchronized(lock) {
+    synchronized
+    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
         continuations = Node(continuations) {
             try {
                 val task = it.continuation()
@@ -63,7 +66,7 @@ public class Pending<T>: State<T>() {
     }
 
     override fun complete(newState: Completed<T>) {
-        var node = synchronized(lock) {
+        var node = synchronized(this) {
             val tmp = continuations
             continuations = null
             tmp
