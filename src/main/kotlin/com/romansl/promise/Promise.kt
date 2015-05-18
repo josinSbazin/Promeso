@@ -33,6 +33,17 @@ public class Promise<T> internal (initState: State<T>) {
         return promise
     }
 
+    public fun isPending(): Boolean = state.get() is Pending
+
+    inline
+    public fun isPending(body: () -> Unit): Promise<T> {
+        if (isPending()) {
+            body()
+        }
+
+        return this
+    }
+
     companion object {
         platformStatic
         public fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
