@@ -50,7 +50,7 @@ public class PromiseTest: TestCase() {
         }.then {
             assertEquals("hello", result)
         }
-        completion.result = 10
+        completion.setResult(10)
     }
 
     public fun testThenSynchronousFailed() {
@@ -78,7 +78,7 @@ public class PromiseTest: TestCase() {
                 result
             }
         }
-        completion.error = exception
+        completion.setError(exception)
     }
 
     public fun testAfterSynchronous() {
@@ -111,7 +111,7 @@ public class PromiseTest: TestCase() {
             }
         }
 
-        completion.result = 10
+        completion.setResult(10)
     }
 
     public fun testAfterAsynchronous1() {
@@ -159,7 +159,7 @@ public class PromiseTest: TestCase() {
         }.then {
             latch.countDown()
         }
-        completion.result = 10
+        completion.setResult(10)
 
         latch.await()
         executor.shutdownNow()

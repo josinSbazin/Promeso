@@ -59,9 +59,9 @@ public class Promise<T> internal (initState: State<T>) {
             val tcs = Promise.create<Result>()
             executor.execute {
                 try {
-                    tcs.result = callable()
+                    tcs.setResult(callable())
                 } catch (e: Exception) {
-                    tcs.error = e
+                    tcs.setError(e)
                 }
             }
             return tcs.promise
