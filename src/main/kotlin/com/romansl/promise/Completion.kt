@@ -1,6 +1,6 @@
 package com.romansl.promise
 
-public class Completion<Result> internal(public val promise: Promise<Result>) {
+public class Completion<Result> internal constructor(public val promise: Promise<Result>) {
     public fun setResult(src: Result) {
         val state = Succeeded(src)
         promise.state.getAndSet(state).complete(state)

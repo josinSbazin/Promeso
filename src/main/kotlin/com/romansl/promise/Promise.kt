@@ -4,7 +4,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
-public class Promise<T> internal (initState: State<T>) {
+public class Promise<T> internal constructor(initState: State<T>) {
     internal val state = AtomicReference<State<T>>()
 
     init {
