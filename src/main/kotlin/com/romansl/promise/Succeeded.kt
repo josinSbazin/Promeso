@@ -1,3 +1,3 @@
 package com.romansl.promise
 
-public class Succeeded<T>(override val result: T) : Completed<T>()
+public class Succeeded<out T>(override val result: T) : Completed<T>()

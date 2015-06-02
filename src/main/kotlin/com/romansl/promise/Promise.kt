@@ -4,32 +4,28 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
-public class Promise<T> internal constructor(initState: State<T>) {
-    internal val state = AtomicReference<State<T>>()
-
-    init {
-        state.set(initState)
-    }
+public class Promise<out T> internal constructor(initState: State<T>) {
+    internal val state: AtomicReference<State<Any>> = AtomicReference(initState)
 
     public fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
-        return state.get().immediateThen(continuation)
+        return (state.get() as State<T>).immediateThen(continuation)
     }
 
     public fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
-        state.get().then(promise, continuation, executor)
+        (state.get() as State<T>).then(promise, continuation, executor)
         return promise
     }
 
     public fun <Result> after(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
-        state.get().immediateAfter(promise, continuation)
+        (state.get() as State<T>).immediateAfter(promise, continuation)
         return promise
     }
 
     public fun <Result> after(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
-        state.get().after(promise, continuation, executor)
+        (state.get() as State<T>).after(promise, continuation, executor)
         return promise
     }
 

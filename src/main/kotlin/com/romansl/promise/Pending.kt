@@ -67,7 +67,7 @@ class Pending<T>: State<T>() {
         }
     }
 
-    override fun complete(newState: Completed<T>) {
+    override fun complete(newState: Completed<Any>) {
         var node = synchronized(this) {
             val tmp = continuations
             continuations = null
@@ -78,7 +78,7 @@ class Pending<T>: State<T>() {
             val localNode = node
             if (localNode == null)
                 break
-            localNode.body(newState)
+            localNode.body(newState as Completed<T>)
             node = localNode.next
         }
     }
