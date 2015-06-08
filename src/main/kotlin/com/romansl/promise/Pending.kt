@@ -67,6 +67,7 @@ class Pending<T>: State<T>() {
         }
     }
 
+    @suppress("UNCHECKED_CAST")
     override fun complete(newState: Completed<Any>) {
         var node = synchronized(this) {
             val tmp = continuations

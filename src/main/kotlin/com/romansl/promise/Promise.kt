@@ -4,6 +4,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
+@suppress("UNCHECKED_CAST")
 public class Promise<out T> internal constructor(initState: State<T>) {
     internal val state: AtomicReference<State<Any>> = AtomicReference(initState)
 
