@@ -67,3 +67,13 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
     }
 }
+
+public fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
+    then {
+        try {
+            completion.setResult(result)
+        } catch (e: Exception) {
+            completion.setError(e)
+        }
+    }
+}
