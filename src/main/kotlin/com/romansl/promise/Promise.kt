@@ -54,11 +54,44 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         public fun <Result> failed(error: Exception): Promise<Result> = Promise(Failed(error))
 
         platformStatic
+        public fun <Result> call(callable: () -> Result): Promise<Result> {
+            return try {
+                succeeded(callable())
+            } catch (e: Exception) {
+                failed(e)
+            }
+        }
+
+        platformStatic
+        public fun <Result> call2(callable: () -> Promise<Result>): Promise<Result> {
+            return try {
+                val tcs = Promise.create<Result>()
+                callable().thenComplete(tcs)
+                return tcs.promise
+            } catch (e: Exception) {
+                failed(e)
+            }
+        }
+
+        platformStatic
         public fun <Result> call(executor: Executor, callable: () -> Result): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
                 try {
                     tcs.setResult(callable())
+                } catch (e: Exception) {
+                    tcs.setError(e)
+                }
+            }
+            return tcs.promise
+        }
+
+        platformStatic
+        public fun <Result> call2(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
+            val tcs = Promise.create<Result>()
+            executor.execute {
+                try {
+                    callable().thenComplete(tcs)
                 } catch (e: Exception) {
                     tcs.setError(e)
                 }
