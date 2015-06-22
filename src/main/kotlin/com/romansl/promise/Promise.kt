@@ -1,6 +1,5 @@
 package com.romansl.promise
 
-import java.util.ArrayList
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -102,42 +101,31 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         platformStatic
-        public fun whenAll(promises: Collection<Promise<*>>): Promise<*> {
+        public fun whenAll(promises: Collection<Promise<*>>): Promise<Array<Completed<*>>> {
             return whenAll(*promises.toTypedArray())
         }
 
         platformStatic
-        public fun whenAll(vararg promises: Promise<*>): Promise<*> {
+        public fun whenAll(vararg promises: Promise<*>): Promise<Array<Completed<*>>> {
             if (promises.isEmpty()) {
-                return succeeded(Unit)
+                return succeeded(emptyArray())
             } else if (promises.size() == 1) {
-                return promises.get(0)
+                return promises.get(0).then {
+                    arrayOf(this)
+                }
             }
 
-            val allFinished = create<Unit>()
-            val causes = ArrayList<Exception>()
+            val allFinished = create<Array<Completed<*>>>()
+            val states = arrayOfNulls<Completed<*>>(promises.size())
             val count = AtomicInteger(promises.size())
 
-            for (promise in promises) {
+            promises.forEachIndexed { i, promise ->
                 promise.then {
-                    try {
-                        result
-                    } catch(e: Exception) {
-                        synchronized(causes) {
-                            causes.add(e)
-                        }
-                    }
+                    states.set(i, this)
 
                     if (count.decrementAndGet() == 0) {
-                        if (causes.isEmpty()) {
-                            allFinished.setResult(Unit)
-                        } else {
-                            allFinished.setError(if (causes.size() == 1) {
-                                causes.get(0)
-                            } else {
-                               AggregateException("There were ${causes.size()} exceptions.",causes.toTypedArray())
-                            })
-                        }
+                        @suppress("CAST_NEVER_SUCCEEDS")
+                        allFinished.setResult(states as Array<Completed<*>>)
                     }
                 }
             }
@@ -146,8 +134,6 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
     }
 }
-
-public class AggregateException(message: String, public val causes: Array<Throwable>) : Exception(message, causes.get(0))
 
 public fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
     then {
