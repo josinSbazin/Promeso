@@ -1,6 +1,8 @@
 package com.romansl.promise
 
+import java.util.ArrayList
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.platform.platformStatic
 
@@ -98,8 +100,54 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             }
             return tcs.promise
         }
+
+        platformStatic
+        public fun whenAll(promises: Collection<Promise<*>>): Promise<*> {
+            return whenAll(*promises.toTypedArray())
+        }
+
+        platformStatic
+        public fun whenAll(vararg promises: Promise<*>): Promise<*> {
+            if (promises.isEmpty()) {
+                return succeeded(Unit)
+            } else if (promises.size() == 1) {
+                return promises.get(0)
+            }
+
+            val allFinished = create<Unit>()
+            val causes = ArrayList<Exception>()
+            val count = AtomicInteger(promises.size())
+
+            for (promise in promises) {
+                promise.then {
+                    try {
+                        result
+                    } catch(e: Exception) {
+                        synchronized(causes) {
+                            causes.add(e)
+                        }
+                    }
+
+                    if (count.decrementAndGet() == 0) {
+                        if (causes.isEmpty()) {
+                            allFinished.setResult(Unit)
+                        } else {
+                            allFinished.setError(if (causes.size() == 1) {
+                                causes.get(0)
+                            } else {
+                               AggregateException("There were ${causes.size()} exceptions.",causes.toTypedArray())
+                            })
+                        }
+                    }
+                }
+            }
+
+            return allFinished.promise
+        }
     }
 }
+
+public class AggregateException(message: String, public val causes: Array<Throwable>) : Exception(message, causes.get(0))
 
 public fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
     then {
