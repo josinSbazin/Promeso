@@ -144,3 +144,15 @@ public fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
         }
     }
 }
+
+public fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
+    val completion = Completion(Promise(Pending<R>()))
+    then {
+        try {
+            result.thenComplete(completion)
+        } catch (e: Exception) {
+            completion.setError(e)
+        }
+    }
+    return completion.promise
+}
