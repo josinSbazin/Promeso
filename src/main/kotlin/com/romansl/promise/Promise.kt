@@ -19,13 +19,19 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         return promise
     }
 
-    public fun <Result> after(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+    /**
+     * Equivalent to: then { ... }.flatten()
+     */
+    public fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         (state.get() as State<T>).immediateAfter(promise, continuation)
         return promise
     }
 
-    public fun <Result> after(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+    /**
+     * Equivalent to: then(executor) { ... }.flatten()
+     */
+    public fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         (state.get() as State<T>).after(promise, continuation, executor)
         return promise
@@ -64,7 +70,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         platformStatic
-        public fun <Result> call2(callable: () -> Promise<Result>): Promise<Result> {
+        public fun <Result> callFlatten(callable: () -> Promise<Result>): Promise<Result> {
             return try {
                 val tcs = Promise.create<Result>()
                 callable().thenComplete(tcs)
@@ -88,7 +94,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         platformStatic
-        public fun <Result> call2(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
+        public fun <Result> callFlatten(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
                 try {

@@ -84,11 +84,11 @@ public class PromiseTest: TestCase() {
     public fun testAfterSynchronous() {
         val exception = RuntimeException("error")
         val promise = Promise.succeeded(10)
-        promise.after {
+        promise.thenFlatten {
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
-        }.after<Int> {
+        }.thenFlatten<Int> {
             assertEquals(21, result)
             throw exception
         }.then {
@@ -98,11 +98,11 @@ public class PromiseTest: TestCase() {
         }
 
         val completion = Promise.create<Int>()
-        completion.promise.after {
+        completion.promise.thenFlatten {
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
-        }.after<Int> {
+        }.thenFlatten<Int> {
             assertEquals(21, result)
             throw exception
         }.then {
@@ -120,11 +120,11 @@ public class PromiseTest: TestCase() {
         val executor = Executors.newCachedThreadPool()
 
         val promise = Promise.succeeded(10)
-        promise.after(executor) {
+        promise.thenFlatten(executor) {
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
-        }.after<Int>(executor) {
+        }.thenFlatten<Int>(executor) {
             assertEquals(21, result)
             throw exception
         }.then(executor) {
@@ -145,11 +145,11 @@ public class PromiseTest: TestCase() {
         val executor = Executors.newCachedThreadPool()
 
         val completion = Promise.create<Int>()
-        completion.promise.after(executor) {
+        completion.promise.thenFlatten(executor) {
             val r = result
             assertEquals(10, r)
             Promise.succeeded(r + 11)
-        }.after<Int>(executor) {
+        }.thenFlatten<Int>(executor) {
             assertEquals(21, result)
             throw exception
         }.then(executor) {
