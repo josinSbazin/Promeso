@@ -50,6 +50,12 @@ public class Promise<out T> internal constructor(initState: State<T>) {
 
     public fun getResult(): T = (state.get() as Completed<T>).result
 
+    public inline fun whenPending(body: () -> Unit) {
+        if (isPending()) {
+            body()
+        }
+    }
+
     companion object {
         platformStatic
         public fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
