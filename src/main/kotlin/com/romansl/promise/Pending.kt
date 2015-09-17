@@ -2,10 +2,10 @@ package com.romansl.promise
 
 import java.util.concurrent.Executor
 
-class Pending<T>: State<T>() {
+internal class Pending<T>: State<T>() {
     private var continuations: Node<T>? = null
 
-    synchronized
+    @Synchronized
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         continuations = Node(continuations) {
             executor.execute {
@@ -20,7 +20,7 @@ class Pending<T>: State<T>() {
         }
     }
 
-    synchronized
+    @Synchronized
     override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
         continuations = Node(continuations) {
@@ -35,7 +35,7 @@ class Pending<T>: State<T>() {
         return promise
     }
 
-    synchronized
+    @Synchronized
     override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
         continuations = Node(continuations) {
             executor.execute {
@@ -52,7 +52,7 @@ class Pending<T>: State<T>() {
         }
     }
 
-    synchronized
+    @Synchronized
     override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
         continuations = Node(continuations) {
             try {
@@ -67,8 +67,8 @@ class Pending<T>: State<T>() {
         }
     }
 
-    @suppress("UNCHECKED_CAST")
-    override fun complete(newState: Completed<Any>) {
+    @Suppress("UNCHECKED_CAST")
+    override fun complete(newState: Completed<*>) {
         var node = synchronized(this) {
             val tmp = continuations
             continuations = null

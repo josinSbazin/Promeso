@@ -3,11 +3,10 @@ package com.romansl.promise
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.platform.platformStatic
 
-@suppress("UNCHECKED_CAST")
+@Suppress("UNCHECKED_CAST")
 public class Promise<out T> internal constructor(initState: State<T>) {
-    internal val state: AtomicReference<State<Any>> = AtomicReference(initState)
+    internal val state: AtomicReference<State<*>> = AtomicReference(initState)
 
     public fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
         return (state.get() as State<T>).immediateThen(continuation)
@@ -57,16 +56,16 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     }
 
     companion object {
-        platformStatic
+        @JvmStatic
         public fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
 
-        platformStatic
+        @JvmStatic
         public fun <Result> succeeded(value: Result): Promise<Result> = Promise(Succeeded(value))
 
-        platformStatic
+        @JvmStatic
         public fun <Result> failed(error: Exception): Promise<Result> = Promise(Failed(error))
 
-        platformStatic
+        @JvmStatic
         public fun <Result> call(callable: () -> Result): Promise<Result> {
             return try {
                 succeeded(callable())
@@ -75,7 +74,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             }
         }
 
-        platformStatic
+        @JvmStatic
         public fun <Result> callFlatten(callable: () -> Promise<Result>): Promise<Result> {
             return try {
                 val tcs = Promise.create<Result>()
@@ -86,7 +85,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             }
         }
 
-        platformStatic
+        @JvmStatic
         public fun <Result> call(executor: Executor, callable: () -> Result): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
@@ -99,7 +98,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             return tcs.promise
         }
 
-        platformStatic
+        @JvmStatic
         public fun <Result> callFlatten(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
@@ -112,12 +111,12 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             return tcs.promise
         }
 
-        platformStatic
+        @JvmStatic
         public fun whenAll(promises: Collection<Promise<*>>): Promise<Array<Completed<*>>> {
             return whenAll(*promises.toTypedArray())
         }
 
-        platformStatic
+        @JvmStatic
         public fun whenAll(vararg promises: Promise<*>): Promise<Array<Completed<*>>> {
             if (promises.isEmpty()) {
                 return succeeded(emptyArray())
@@ -136,7 +135,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
                     states.set(i, this)
 
                     if (count.decrementAndGet() == 0) {
-                        @suppress("CAST_NEVER_SUCCEEDS")
+                        @Suppress("CAST_NEVER_SUCCEEDS")
                         allFinished.setResult(states as Array<Completed<*>>)
                     }
                 }
