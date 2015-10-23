@@ -3,8 +3,6 @@ package com.romansl.promise
 import junit.framework.TestCase
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 public class PromiseTest: TestCase() {
 
