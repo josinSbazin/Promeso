@@ -120,15 +120,15 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         public fun whenAll(vararg promises: Promise<*>): Promise<Array<Completed<*>>> {
             if (promises.isEmpty()) {
                 return succeeded(emptyArray())
-            } else if (promises.size() == 1) {
-                return promises.get(0).then {
+            } else if (promises.size == 1) {
+                return promises[0].then {
                     arrayOf(this)
                 }
             }
 
             val allFinished = create<Array<Completed<*>>>()
-            val states = arrayOfNulls<Completed<*>>(promises.size())
-            val count = AtomicInteger(promises.size())
+            val states = arrayOfNulls<Completed<*>>(promises.size)
+            val count = AtomicInteger(promises.size)
 
             promises.forEachIndexed { i, promise ->
                 promise.then {
