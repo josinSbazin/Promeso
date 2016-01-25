@@ -14,7 +14,7 @@ public class PromiseTest: TestCase() {
             return
         }
 
-        assertTrue(false, "Block not throwing exception")
+        assertTrue("Block not throwing exception", false)
     }
 
     public fun testSucceeded() {

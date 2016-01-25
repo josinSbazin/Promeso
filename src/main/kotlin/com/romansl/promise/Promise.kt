@@ -146,14 +146,15 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     }
 }
 
-public fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
-    then {
-        try {
-            completion.setResult(result)
-        } catch (e: Exception) {
-            completion.setError(e)
-        }
+class ThenCompleteListener<T>(private val completion: Completion<T>) : (Completed<T>) -> Unit {
+    override fun invoke(completed: Completed<T>): Unit {
+        completion.promise.state.getAndSet(completed).complete(completed)
     }
+}
+
+@Suppress("NOTHING_TO_INLINE")
+public inline fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
+    then(ThenCompleteListener(completion))
 }
 
 public fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
