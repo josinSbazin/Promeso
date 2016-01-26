@@ -152,9 +152,9 @@ class ThenCompleteListener<T>(private val completion: Completion<T>) : (Complete
     }
 }
 
-@Suppress("NOTHING_TO_INLINE")
-public inline fun <R> Promise<R>.thenComplete(completion: Completion<R>) {
-    then(ThenCompleteListener(completion))
+public fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
+    @Suppress("UNCHECKED_CAST")
+    (state.get() as State<T>).immediateThen(ThenCompleteListener(completion))
 }
 
 public fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
