@@ -9,13 +9,15 @@ internal class Pending<T>: State<T>() {
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         continuations = Node(continuations) {
             executor.execute {
-                try {
-                    val newState = Succeeded(it.continuation())
-                    promise.state.getAndSet(newState).complete(newState)
+                val newState = try {
+                    Succeeded(it.continuation())
+                } catch (e: OutOfMemoryError) {
+                    Failed<Result>(InterceptedOOMException(e))
                 } catch (e: Exception) {
-                    val newState = Failed<Result>(e)
-                    promise.state.getAndSet(newState).complete(newState)
+                    Failed<Result>(e)
                 }
+
+                promise.state.getAndSet(newState).complete(newState)
             }
         }
     }
@@ -24,13 +26,15 @@ internal class Pending<T>: State<T>() {
     override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
         continuations = Node(continuations) {
-            try {
-                val newState = Succeeded(it.continuation())
-                promise.state.getAndSet(newState).complete(newState)
+            val newState = try {
+                Succeeded(it.continuation())
+            } catch (e: OutOfMemoryError) {
+                Failed<Result>(InterceptedOOMException(e))
             } catch (e: Exception) {
-                val newState = Failed<Result>(e)
-                promise.state.getAndSet(newState).complete(newState)
+                Failed<Result>(e)
             }
+
+            promise.state.getAndSet(newState).complete(newState)
         }
         return promise
     }
@@ -41,9 +45,10 @@ internal class Pending<T>: State<T>() {
             executor.execute {
                 try {
                     val task = it.continuation()
-                    task.then {
-                        promise.state.getAndSet(this).complete(this)
-                    }
+                    task.then(ThenFlattenListener(promise))
+                } catch (e: OutOfMemoryError) {
+                    val newState = Failed<Result>(InterceptedOOMException(e))
+                    promise.state.getAndSet(newState).complete(newState)
                 } catch (e: Exception) {
                     val newState = Failed<Result>(e)
                     promise.state.getAndSet(newState).complete(newState)
@@ -57,9 +62,10 @@ internal class Pending<T>: State<T>() {
         continuations = Node(continuations) {
             try {
                 val task = it.continuation()
-                task.then {
-                    promise.state.getAndSet(this).complete(this)
-                }
+                task.then(ThenFlattenListener(promise))
+            } catch (e: OutOfMemoryError) {
+                val newState = Failed<Result>(InterceptedOOMException(e))
+                promise.state.getAndSet(newState).complete(newState)
             } catch (e: Exception) {
                 val newState = Failed<Result>(e)
                 promise.state.getAndSet(newState).complete(newState)

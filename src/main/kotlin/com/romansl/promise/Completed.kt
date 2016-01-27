@@ -9,19 +9,23 @@ public abstract class Completed<out T> : State<T>() {
 
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         executor.execute {
-            try {
-                val newState = Succeeded(continuation())
-                promise.state.getAndSet(newState).complete(newState)
+            val newState = try {
+                Succeeded(continuation())
+            } catch (e: OutOfMemoryError) {
+                Failed<Result>(InterceptedOOMException(e))
             } catch (e: Exception) {
-                val newState = Failed<Result>(e)
-                promise.state.getAndSet(newState).complete(newState)
+                Failed<Result>(e)
             }
+
+            promise.state.getAndSet(newState).complete(newState)
         }
     }
 
     override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
         return try {
             Promise(Succeeded(continuation()))
+        } catch (e: OutOfMemoryError) {
+            Promise(Failed(InterceptedOOMException(e)))
         } catch (e: Exception) {
             Promise(Failed(e))
         }
@@ -31,9 +35,10 @@ public abstract class Completed<out T> : State<T>() {
         executor.execute {
             try {
                 val task = continuation()
-                task.then {
-                    promise.state.getAndSet(this).complete(this)
-                }
+                task.then(ThenFlattenListener(promise))
+            } catch (e: OutOfMemoryError) {
+                val newState = Failed<Result>(InterceptedOOMException(e))
+                promise.state.getAndSet(newState).complete(newState)
             } catch (e: Exception) {
                 val newState = Failed<Result>(e)
                 promise.state.getAndSet(newState).complete(newState)
@@ -44,9 +49,10 @@ public abstract class Completed<out T> : State<T>() {
     override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
         try {
             val task = continuation()
-            task.then {
-                promise.state.getAndSet(this).complete(this)
-            }
+            task.then(ThenFlattenListener(promise))
+        } catch (e: OutOfMemoryError) {
+            val newState = Failed<Result>(InterceptedOOMException(e))
+            promise.state.getAndSet(newState).complete(newState)
         } catch (e: Exception) {
             val newState = Failed<Result>(e)
             promise.state.getAndSet(newState).complete(newState)

@@ -69,6 +69,8 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         public fun <Result> call(callable: () -> Result): Promise<Result> {
             return try {
                 succeeded(callable())
+            } catch (e: OutOfMemoryError) {
+                failed(InterceptedOOMException(e))
             } catch (e: Exception) {
                 failed(e)
             }
@@ -79,7 +81,9 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             return try {
                 val tcs = Promise.create<Result>()
                 callable().thenComplete(tcs)
-                return tcs.promise
+                tcs.promise
+            } catch (e: OutOfMemoryError) {
+                failed(InterceptedOOMException(e))
             } catch (e: Exception) {
                 failed(e)
             }
@@ -91,6 +95,8 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             executor.execute {
                 try {
                     tcs.setResult(callable())
+                } catch (e: OutOfMemoryError) {
+                    tcs.setError(InterceptedOOMException(e))
                 } catch (e: Exception) {
                     tcs.setError(e)
                 }
@@ -104,6 +110,8 @@ public class Promise<out T> internal constructor(initState: State<T>) {
             executor.execute {
                 try {
                     callable().thenComplete(tcs)
+                } catch (e: OutOfMemoryError) {
+                    tcs.setError(InterceptedOOMException(e))
                 } catch (e: Exception) {
                     tcs.setError(e)
                 }
@@ -146,12 +154,6 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     }
 }
 
-class ThenCompleteListener<T>(private val completion: Completion<T>) : (Completed<T>) -> Unit {
-    override fun invoke(completed: Completed<T>): Unit {
-        completion.promise.state.getAndSet(completed).complete(completed)
-    }
-}
-
 public fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
     @Suppress("UNCHECKED_CAST")
     (state.get() as State<T>).immediateThen(ThenCompleteListener(completion))
@@ -162,6 +164,8 @@ public fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
     then {
         try {
             result.thenComplete(completion)
+        } catch (e: OutOfMemoryError) {
+            completion.setError(InterceptedOOMException(e))
         } catch (e: Exception) {
             completion.setError(e)
         }
