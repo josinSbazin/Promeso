@@ -2,8 +2,8 @@ package com.romansl.promise
 
 import java.util.concurrent.Executor
 
-public abstract class Completed<out T> : State<T>() {
-    public abstract val result: T
+abstract class Completed<out T> : State<T>() {
+    abstract val result: T
 
     override fun complete(newState: Completed<*>) = throw AssertionError()
 

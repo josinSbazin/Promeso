@@ -5,14 +5,14 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 @Suppress("UNCHECKED_CAST")
-public class Promise<out T> internal constructor(initState: State<T>) {
+class Promise<out T> internal constructor(initState: State<T>) {
     internal val state: AtomicReference<State<*>> = AtomicReference(initState)
 
-    public fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
+    fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
         return (state.get() as State<T>).immediateThen(continuation)
     }
 
-    public fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
+    fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
         val promise = Promise<Result>(Pending())
         (state.get() as State<T>).then(promise, continuation, executor)
         return promise
@@ -21,7 +21,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     /**
      * Equivalent to: then { ... }.flatten()
      */
-    public fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+    fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         (state.get() as State<T>).immediateAfter(promise, continuation)
         return promise
@@ -30,16 +30,15 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     /**
      * Equivalent to: then(executor) { ... }.flatten()
      */
-    public fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+    fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val promise = Promise<Result>(Pending())
         (state.get() as State<T>).after(promise, continuation, executor)
         return promise
     }
 
-    public fun isPending(): Boolean = state.get() is Pending
+    fun isPending(): Boolean = state.get() is Pending
 
-    inline
-    public fun isPending(body: () -> Unit): Promise<T> {
+    inline fun isPending(body: () -> Unit): Promise<T> {
         if (isPending()) {
             body()
         }
@@ -47,9 +46,9 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         return this
     }
 
-    public fun getResult(): T = (state.get() as Completed<T>).result
+    fun getResult(): T = (state.get() as Completed<T>).result
 
-    public inline fun whenPending(body: () -> Unit) {
+    inline fun whenPending(body: () -> Unit) {
         if (isPending()) {
             body()
         }
@@ -57,16 +56,16 @@ public class Promise<out T> internal constructor(initState: State<T>) {
 
     companion object {
         @JvmStatic
-        public fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
+        fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
 
         @JvmStatic
-        public fun <Result> succeeded(value: Result): Promise<Result> = Promise(Succeeded(value))
+        fun <Result> succeeded(value: Result): Promise<Result> = Promise(Succeeded(value))
 
         @JvmStatic
-        public fun <Result> failed(error: Exception): Promise<Result> = Promise(Failed(error))
+        fun <Result> failed(error: Exception): Promise<Result> = Promise(Failed(error))
 
         @JvmStatic
-        public fun <Result> call(callable: () -> Result): Promise<Result> {
+        fun <Result> call(callable: () -> Result): Promise<Result> {
             return try {
                 succeeded(callable())
             } catch (e: OutOfMemoryError) {
@@ -77,7 +76,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         @JvmStatic
-        public fun <Result> callFlatten(callable: () -> Promise<Result>): Promise<Result> {
+        fun <Result> callFlatten(callable: () -> Promise<Result>): Promise<Result> {
             return try {
                 val tcs = Promise.create<Result>()
                 callable().thenComplete(tcs)
@@ -90,7 +89,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         @JvmStatic
-        public fun <Result> call(executor: Executor, callable: () -> Result): Promise<Result> {
+        fun <Result> call(executor: Executor, callable: () -> Result): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
                 try {
@@ -105,7 +104,7 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         @JvmStatic
-        public fun <Result> callFlatten(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
+        fun <Result> callFlatten(executor: Executor, callable: () -> Promise<Result>): Promise<Result> {
             val tcs = Promise.create<Result>()
             executor.execute {
                 try {
@@ -120,12 +119,12 @@ public class Promise<out T> internal constructor(initState: State<T>) {
         }
 
         @JvmStatic
-        public fun whenAll(promises: Collection<Promise<*>>): Promise<Array<Completed<*>>> {
+        fun whenAll(promises: Collection<Promise<*>>): Promise<Array<Completed<*>>> {
             return whenAll(*promises.toTypedArray())
         }
 
         @JvmStatic
-        public fun whenAll(vararg promises: Promise<*>): Promise<Array<Completed<*>>> {
+        fun whenAll(vararg promises: Promise<*>): Promise<Array<Completed<*>>> {
             if (promises.isEmpty()) {
                 return succeeded(emptyArray())
             } else if (promises.size == 1) {
@@ -154,12 +153,12 @@ public class Promise<out T> internal constructor(initState: State<T>) {
     }
 }
 
-public fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
+fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
     @Suppress("UNCHECKED_CAST")
     (state.get() as State<T>).immediateThen(ThenCompleteListener(completion))
 }
 
-public fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
+fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
     val completion = Completion(Promise(Pending<R>()))
     then {
         try {

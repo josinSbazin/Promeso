@@ -5,7 +5,7 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
-public class PromiseTest: TestCase() {
+class PromiseTest: TestCase() {
 
     private fun assertThrows(expected: Throwable?, block: () -> Unit) {
         try {
@@ -18,13 +18,13 @@ public class PromiseTest: TestCase() {
         assertTrue("Block not throwing exception", false)
     }
 
-    public fun testSucceeded() {
+    fun testSucceeded() {
         val promise = Promise.succeeded(10)
         assertTrue(promise.state.get() is Succeeded<*>)
         assertEquals(10, (promise.state.get() as Completed).result)
     }
 
-    public fun testFailed() {
+    fun testFailed() {
         val exception = RuntimeException("hello")
         val promise = Promise.failed<Int>(exception)
         assertTrue(promise.state.get() is Failed<*>)
@@ -33,7 +33,7 @@ public class PromiseTest: TestCase() {
         }
     }
 
-    public fun testThenSynchronousSucceeded() {
+    fun testThenSynchronousSucceeded() {
         val promise = Promise.succeeded(10)
         promise.then {
             assertEquals(10, result)
@@ -52,7 +52,7 @@ public class PromiseTest: TestCase() {
         completion.setResult(10)
     }
 
-    public fun testThenSynchronousFailed() {
+    fun testThenSynchronousFailed() {
         val exception = RuntimeException("world")
         val promise = Promise.failed<Int>(exception)
         promise.then {
@@ -80,7 +80,7 @@ public class PromiseTest: TestCase() {
         completion.setError(exception)
     }
 
-    public fun testAfterSynchronous() {
+    fun testAfterSynchronous() {
         val exception = RuntimeException("error")
         val promise = Promise.succeeded(10)
         promise.thenFlatten {
@@ -113,7 +113,7 @@ public class PromiseTest: TestCase() {
         completion.setResult(10)
     }
 
-    public fun testAfterAsynchronous1() {
+    fun testAfterAsynchronous1() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
         val executor = Executors.newCachedThreadPool()
@@ -138,7 +138,7 @@ public class PromiseTest: TestCase() {
         executor.shutdown()
     }
 
-    public fun testAfterAsynchronous2() {
+    fun testAfterAsynchronous2() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
         val executor = Executors.newCachedThreadPool()
