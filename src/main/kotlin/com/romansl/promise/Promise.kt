@@ -55,6 +55,10 @@ class Promise<out T> internal constructor(initState: State<T>) {
     }
 
     companion object {
+        @Volatile
+        @JvmStatic
+        var unhandledErrorListener: ((e: Exception) -> Unit)? = null
+
         @JvmStatic
         fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
 
