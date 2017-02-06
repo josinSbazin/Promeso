@@ -5,7 +5,7 @@ import java.util.concurrent.Executor
 abstract class Completed<out T> : State<T>() {
     abstract val result: T
 
-    override fun complete(newState: Completed<*>) = throw AssertionError()
+    override fun complete(newState: Completed<*>) = throw IllegalStateException("Can not complete Completion twice.")
 
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         executor.execute {

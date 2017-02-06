@@ -81,10 +81,15 @@ internal class Pending<T>: State<T>() {
             tmp
         }
 
+        if (node == null) {
+            if (newState is Failed) {
+                Promise.unhandledErrorListener?.invoke(newState.exception)
+            }
+            return
+        }
+
         while (true) {
-            val localNode = node
-            if (localNode == null)
-                break
+            val localNode = node ?: break
             localNode.body(newState as Completed<T>)
             node = localNode.next
         }

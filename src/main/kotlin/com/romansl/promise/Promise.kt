@@ -1,6 +1,8 @@
 package com.romansl.promise
 
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -54,7 +56,25 @@ class Promise<out T> internal constructor(initState: State<T>) {
         }
     }
 
+    fun waitForCompletion(): T {
+        val latch = CountDownLatch(1)
+        then { latch.countDown() }
+        latch.await()
+        return (state.get() as Completed<T>).result
+    }
+
+    fun waitForCompletion(timeout: Long, unit: TimeUnit = TimeUnit.MILLISECONDS): T {
+        val latch = CountDownLatch(1)
+        then { latch.countDown() }
+        latch.await(timeout, unit)
+        return (state.get() as Completed<T>).result
+    }
+
     companion object {
+        @Volatile
+        @JvmStatic
+        var unhandledErrorListener: ((e: Exception) -> Unit)? = null
+
         @JvmStatic
         fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
 
