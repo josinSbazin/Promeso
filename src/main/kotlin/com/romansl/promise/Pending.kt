@@ -1,9 +1,38 @@
 package com.romansl.promise
 
 import java.util.concurrent.Executor
+import kotlin.coroutines.experimental.Continuation
 
 internal class Pending<T>: State<T>() {
     private var continuations: Node<T>? = null
+
+    @Synchronized
+    override fun thenContinuation(continuation: Continuation<T>) {
+        continuations = Node(continuations) { completed ->
+            try {
+                continuation.resume(completed.result)
+            } catch (e: OutOfMemoryError) {
+                continuation.resumeWithException(InterceptedOOMException(e))
+            } catch (e: Exception) {
+                continuation.resumeWithException(e)
+            }
+        }
+    }
+
+    @Synchronized
+    override fun thenContinuation(continuation: Continuation<T>, executor: Executor) {
+        continuations = Node(continuations) { completed ->
+            executor.execute {
+                try {
+                    continuation.resume(completed.result)
+                } catch (e: OutOfMemoryError) {
+                    continuation.resumeWithException(InterceptedOOMException(e))
+                } catch (e: Exception) {
+                    continuation.resumeWithException(e)
+                }
+            }
+        }
+    }
 
     @Synchronized
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {

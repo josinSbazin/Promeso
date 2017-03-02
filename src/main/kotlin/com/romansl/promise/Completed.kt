@@ -1,11 +1,34 @@
 package com.romansl.promise
 
 import java.util.concurrent.Executor
+import kotlin.coroutines.experimental.Continuation
 
 abstract class Completed<out T> : State<T>() {
     abstract val result: T
 
     override fun complete(newState: Completed<*>) = throw IllegalStateException("Can not complete Completion twice.")
+
+    override fun thenContinuation(continuation: Continuation<T>) {
+        try {
+            continuation.resume(result)
+        } catch (e: OutOfMemoryError) {
+            continuation.resumeWithException(InterceptedOOMException(e))
+        } catch (e: Exception) {
+            continuation.resumeWithException(e)
+        }
+    }
+
+    override fun thenContinuation(continuation: Continuation<T>, executor: Executor) {
+        executor.execute {
+            try {
+                continuation.resume(result)
+            } catch (e: OutOfMemoryError) {
+                continuation.resumeWithException(InterceptedOOMException(e))
+            } catch (e: Exception) {
+                continuation.resumeWithException(e)
+            }
+        }
+    }
 
     override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
         executor.execute {

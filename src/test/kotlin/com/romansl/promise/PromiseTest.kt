@@ -1,11 +1,16 @@
 package com.romansl.promise
 
-import junit.framework.TestCase
+import com.romansl.promise.experimental.async
+import com.romansl.promise.experimental.await
+import org.junit.Test
 import java.util.*
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
-class PromiseTest: TestCase() {
+class PromiseTest {
 
     private fun assertThrows(expected: Throwable?, block: () -> Unit) {
         try {
@@ -15,15 +20,17 @@ class PromiseTest: TestCase() {
             return
         }
 
-        assertTrue("Block not throwing exception", false)
+        assertTrue(false, "Block not throwing exception")
     }
 
+    @Test
     fun testSucceeded() {
         val promise = Promise.succeeded(10)
         assertTrue(promise.state.get() is Succeeded<*>)
         assertEquals(10, (promise.state.get() as Completed).result)
     }
 
+    @Test
     fun testFailed() {
         val exception = RuntimeException("hello")
         val promise = Promise.failed<Int>(exception)
@@ -33,6 +40,7 @@ class PromiseTest: TestCase() {
         }
     }
 
+    @Test
     fun testThenSynchronousSucceeded() {
         val promise = Promise.succeeded(10)
         promise.then {
@@ -52,6 +60,7 @@ class PromiseTest: TestCase() {
         completion.setResult(10)
     }
 
+    @Test
     fun testThenSynchronousFailed() {
         val exception = RuntimeException("world")
         val promise = Promise.failed<Int>(exception)
@@ -80,6 +89,7 @@ class PromiseTest: TestCase() {
         completion.setError(exception)
     }
 
+    @Test
     fun testAfterSynchronous() {
         val exception = RuntimeException("error")
         val promise = Promise.succeeded(10)
@@ -113,6 +123,7 @@ class PromiseTest: TestCase() {
         completion.setResult(10)
     }
 
+    @Test
     fun testAfterAsynchronous1() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
@@ -138,6 +149,7 @@ class PromiseTest: TestCase() {
         executor.shutdown()
     }
 
+    @Test
     fun testAfterAsynchronous2() {
         val exception = RuntimeException("error")
         val latch = CountDownLatch(1)
@@ -164,6 +176,7 @@ class PromiseTest: TestCase() {
         executor.shutdownNow()
     }
 
+    @Test
     fun testThenCompleteSuccess() {
         val completion1 = Promise.create<Number>()
         val completion2 = Promise.create<Int>()
@@ -185,6 +198,7 @@ class PromiseTest: TestCase() {
         assertEquals("[10]", out.toString())
     }
 
+    @Test
     fun testThenCompleteFail() {
         val completion1 = Promise.create<Number>()
         val completion2 = Promise.create<Int>()
@@ -208,5 +222,76 @@ class PromiseTest: TestCase() {
         completion2.setError(RuntimeException("Hello World"))
 
         assertEquals("[Hello World]", out.toString())
+    }
+
+    @Test
+    fun testAsync() {
+        val promise = Promise.async<Int> { 10 }
+        assertEquals(10, promise.getResult())
+    }
+
+    @Test
+    fun testAsyncException() {
+        val exception = RuntimeException("error")
+        val promise = Promise.async<Int> { throw exception }
+        assertThrows(exception) {
+            promise.getResult()
+        }
+    }
+
+    @Test
+    fun testAwait() {
+        val promise = Promise.async<Int> {
+            Promise.succeeded(10).await()
+        }
+        assertEquals(10, promise.getResult())
+    }
+
+    @Test
+    fun testAwaitException() {
+        val exception = RuntimeException("error")
+        val promise = Promise.async<Int> {
+            Promise.failed<Int>(exception).await()
+        }
+        assertThrows(exception) {
+            promise.getResult()
+        }
+    }
+
+    @Test
+    fun testAwaitExecutor() {
+        val executor = TestExecutor()
+        val promise = Promise.async<Int> {
+            Promise.succeeded(10).await(executor)
+        }
+        assertTrue(promise.state.get() is Pending<*>)
+        executor.run()
+        assertEquals(10, promise.getResult())
+    }
+
+    @Test
+    fun testAwaitExceptionExecutor() {
+        val executor = TestExecutor()
+        val exception = RuntimeException("error")
+        val promise = Promise.async<Int> {
+            Promise.failed<Int>(exception).await(executor)
+        }
+        assertTrue(promise.state.get() is Pending<*>)
+        executor.run()
+        assertThrows(exception) {
+            promise.getResult()
+        }
+    }
+
+    private class TestExecutor : Executor {
+        var runnable: Runnable? = null
+
+        override fun execute(r: Runnable) {
+            runnable = r
+        }
+
+        fun run() {
+            runnable?.run()
+        }
     }
 }
