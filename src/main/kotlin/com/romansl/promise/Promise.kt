@@ -175,7 +175,7 @@ class Promise<out T> internal constructor(initState: State<T>) {
 
 fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
     @Suppress("UNCHECKED_CAST")
-    (state.get() as State<T>).immediateThen(ThenCompleteListener(completion))
+    (state.get() as State<T>).immediateThen(ThenFlattenListener(completion.promise))
 }
 
 fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
