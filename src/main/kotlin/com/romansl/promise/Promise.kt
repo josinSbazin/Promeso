@@ -170,12 +170,25 @@ class Promise<out T> internal constructor(initState: State<T>) {
 
             return allFinished.promise
         }
+
+        fun <T> whenAny(vararg promises: Promise<T>): Promise<T> {
+            val completion = Promise.create<T>()
+            promises.forEach {
+                it.thenComplete(completion)
+            }
+            return completion.promise
+        }
     }
 }
 
 fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
     @Suppress("UNCHECKED_CAST")
-    (state.get() as State<T>).immediateThen(ThenCompleteListener(completion))
+    (state.get() as State<T>).immediateThen(ThenFlattenListener(completion.promise))
+}
+
+fun <T> Promise<T>.thenCompleteSafe(completion: Completion<T>) {
+    @Suppress("UNCHECKED_CAST")
+    (state.get() as State<T>).immediateThen(ThenFlattenSafeListener(completion.promise))
 }
 
 fun <R> Promise<Promise<R>>.flatten(): Promise<R> {

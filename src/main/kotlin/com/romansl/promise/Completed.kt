@@ -8,6 +8,10 @@ abstract class Completed<out T> : State<T>() {
 
     override fun complete(newState: Completed<*>) = throw IllegalStateException("Can not complete Completion twice.")
 
+    override fun completeSafe(newState: Completed<*>) {
+        // no op
+    }
+
     override fun thenContinuation(continuation: Continuation<T>) {
         try {
             continuation.resume(result)

@@ -41,3 +41,48 @@ suspend fun <T> Promise<T>.await(executor: Executor): T = suspendCoroutine {
     @Suppress("UNCHECKED_CAST")
     (state.get() as State<T>).thenContinuation(it, executor)
 }
+
+class Selector<R> {
+    internal val completion = Promise.create<R>()
+
+    fun <T> case(promise: Promise<T>, body: Completed<T>.() -> R) {
+        promise.then(body).thenCompleteSafe(completion)
+    }
+
+    fun <T> caseFlatten(promise: Promise<T>, body: Completed<T>.() -> Promise<R>) {
+        promise.thenFlatten(body).thenCompleteSafe(completion)
+    }
+
+    fun <T> case(promise: Promise<T>, executor: Executor, body: Completed<T>.() -> R) {
+        promise.then(executor, body).thenCompleteSafe(completion)
+    }
+
+    fun <T> caseFlatten(promise: Promise<T>, executor: Executor, body: Completed<T>.() -> Promise<R>) {
+        promise.thenFlatten(executor, body).thenCompleteSafe(completion)
+    }
+
+    fun case(promise: Promise<R>) {
+        promise.thenCompleteSafe(completion)
+    }
+}
+
+suspend fun <R> select(body: Selector<R>.() -> Unit): R {
+    val selector = Selector<R>()
+    selector.body()
+    return selector.completion.promise.await()
+}
+
+suspend fun foo() {
+    val p1 = Promise.succeeded(0)
+    val p2 = Promise.succeeded(0)
+
+    select<Int> {
+        case(p1) {
+            result + 1
+        }
+        case(p2) {
+            result + 2
+        }
+        case(p2)
+    }
+}

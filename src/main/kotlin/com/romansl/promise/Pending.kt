@@ -124,5 +124,9 @@ internal class Pending<T>: State<T>() {
         }
     }
 
+    override fun completeSafe(newState: Completed<*>) {
+        complete(newState)
+    }
+
     private class Node<T>(val next: Node<T>?, val body: (Completed<T>) -> Unit)
 }
