@@ -2,13 +2,13 @@ package com.romansl.promise
 
 import com.romansl.promise.experimental.async
 import com.romansl.promise.experimental.await
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class PromiseTest {
 
@@ -20,7 +20,7 @@ class PromiseTest {
             return
         }
 
-        assertTrue(false, "Block not throwing exception")
+        assertTrue("Block not throwing exception", false)
     }
 
     @Test
