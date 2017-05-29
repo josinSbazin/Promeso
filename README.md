@@ -1,6 +1,8 @@
 # Promeso
 Simple promise library for Kotlin
 
+[![](https://jitpack.io/v/romansl/Promeso.svg)](https://jitpack.io/#romansl/Promeso)
+
 Callback to Promise:
 
 ```kotlin
