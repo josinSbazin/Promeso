@@ -2,17 +2,17 @@ package com.romansl.promise
 
 import com.romansl.promise.experimental.async
 import com.romansl.promise.experimental.await
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 import java.util.*
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 class PromiseTest {
 
-    private fun assertThrows(expected: Throwable?, block: () -> Unit) {
+    private fun assertThrows1(expected: Throwable?, block: () -> Unit) {
         try {
             block()
         } catch (e: Throwable) {
@@ -20,7 +20,7 @@ class PromiseTest {
             return
         }
 
-        assertTrue("Block not throwing exception", false)
+        assertTrue(false, "Block not throwing exception")
     }
 
     @Test
@@ -34,8 +34,8 @@ class PromiseTest {
     fun testFailed() {
         val exception = RuntimeException("hello")
         val promise = Promise.failed<Int>(exception)
-        assertTrue(promise.state.get() is Failed<*>)
-        assertThrows(exception) {
+        assertTrue(promise.state.get() is Failed)
+        assertThrows(RuntimeException::class.java) {
             (promise.state.get() as Completed).result
         }
     }
@@ -65,24 +65,24 @@ class PromiseTest {
         val exception = RuntimeException("world")
         val promise = Promise.failed<Int>(exception)
         promise.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
             result
         }.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }
 
         val completion = Promise.create<Int>()
         completion.promise.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
             result
         }.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }
@@ -101,7 +101,7 @@ class PromiseTest {
             assertEquals(21, result)
             throw exception
         }.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }
@@ -115,7 +115,7 @@ class PromiseTest {
             assertEquals(21, result)
             throw exception
         }.then {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }
@@ -138,7 +138,7 @@ class PromiseTest {
             assertEquals(21, result)
             throw exception
         }.then(executor) {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }.then {
@@ -164,7 +164,7 @@ class PromiseTest {
             assertEquals(21, result)
             throw exception
         }.then(executor) {
-            assertThrows(exception) {
+            assertThrows(RuntimeException::class.java) {
                 result
             }
         }.then {
@@ -234,7 +234,7 @@ class PromiseTest {
     fun testAsyncException() {
         val exception = RuntimeException("error")
         val promise = Promise.async<Int> { throw exception }
-        assertThrows(exception) {
+        assertThrows(RuntimeException::class.java) {
             promise.getResult()
         }
     }
@@ -253,7 +253,7 @@ class PromiseTest {
         val promise = Promise.async<Int> {
             Promise.failed<Int>(exception).await()
         }
-        assertThrows(exception) {
+        assertThrows(RuntimeException::class.java) {
             promise.getResult()
         }
     }
@@ -278,9 +278,134 @@ class PromiseTest {
         }
         assertTrue(promise.state.get() is Pending<*>)
         executor.run()
-        assertThrows(exception) {
+        assertThrows(RuntimeException::class.java) {
             promise.getResult()
         }
+    }
+
+    @Test
+    fun testResultThenCancel() {
+        val completion = Promise.create<Int>()
+        completion.setResult(10)
+        assertEquals(10, completion.promise.getResult())
+        completion.setCancelled()
+        assertEquals(10, completion.promise.getResult())
+    }
+
+    @Test
+    fun testCancelThenResult() {
+        val completion = Promise.create<Int>()
+        completion.setCancelled()
+        assertTrue(completion.promise.isCancelled())
+        completion.setResult(10)
+        assertTrue(completion.promise.isCancelled())
+    }
+
+    @Test
+    fun testPromiseCancel() {
+        val promise = Promise.create<Int>().promise
+        var hits = 0
+        promise.then {
+            hits++
+            assertThrows(CancellationException::class.java) {
+                result
+            }
+        }
+        promise.cancel()
+        promise.cancel()
+        assertEquals(1, hits)
+
+        promise.then {
+            hits++
+            assertThrows(CancellationException::class.java) {
+                result
+            }
+        }
+        assertEquals(2, hits)
+    }
+
+    @Test
+    fun testPromiseCancelEx() {
+        val executor = TestExecutor()
+        val promise = Promise.create<Int>().promise
+        var hits = 0
+        promise.then(executor) {
+            hits++
+            assertThrows(CancellationException::class.java) {
+                result
+            }
+        }
+        promise.cancel()
+        assertEquals(0, hits)
+
+        executor.run()
+        promise.cancel()
+        assertEquals(1, hits)
+    }
+
+    @Test
+    fun testPromiseFlattenCancel() {
+        val promise = Promise.create<Int>().promise
+        var hits = 0
+        promise.thenFlatten {
+            hits++
+            assertThrows(CancellationException::class.java) {
+                result
+            }
+            Promise.succeeded(10)
+        }
+        assertEquals(0, hits)
+        promise.cancel()
+        promise.cancel()
+        assertEquals(1, hits)
+    }
+
+    @Test
+    fun testPromiseFlattenCancelEx() {
+        val executor = TestExecutor()
+        val promise = Promise.create<Int>().promise
+        var hits = 0
+        promise.thenFlatten(executor) {
+            hits++
+            assertThrows(CancellationException::class.java) {
+                result
+            }
+            Promise.succeeded(10)
+        }
+        promise.cancel()
+        assertEquals(0, hits)
+
+        executor.run()
+        promise.cancel()
+        assertEquals(1, hits)
+    }
+
+    @Test
+    fun testCancelSide() {
+        val promise = Promise.create<Int>().promise
+        var hits1 = 0
+        var hits2 = 0
+        var hits3 = 0
+        val p1 = promise.then {
+            hits1++
+        }
+        promise.then {
+            hits2++
+        }
+        p1.then {
+            hits3++
+        }
+        assertEquals(0, hits1)
+        assertEquals(0, hits2)
+        assertEquals(0, hits3)
+        p1.cancel()
+        assertEquals(0, hits1)
+        assertEquals(0, hits2)
+        assertEquals(1, hits3)
+        promise.cancel()
+        assertEquals(0, hits1)
+        assertEquals(1, hits2)
+        assertEquals(1, hits3)
     }
 
     private class TestExecutor : Executor {
@@ -292,6 +417,7 @@ class PromiseTest {
 
         fun run() {
             runnable?.run()
+            runnable = null
         }
     }
 }

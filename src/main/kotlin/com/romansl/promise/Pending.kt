@@ -3,7 +3,7 @@ package com.romansl.promise
 import java.util.concurrent.Executor
 import kotlin.coroutines.experimental.Continuation
 
-internal class Pending<T>: State<T>() {
+internal class Pending<out T>: State<T>() {
     private var continuations: Node<T>? = null
 
     @Synchronized
@@ -35,71 +35,77 @@ internal class Pending<T>: State<T>() {
     }
 
     @Synchronized
-    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
+    override fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise<Result>(pending)
         continuations = Node(continuations) {
             executor.execute {
                 val newState = try {
                     Succeeded(it.continuation())
                 } catch (e: OutOfMemoryError) {
-                    Failed<Result>(InterceptedOOMException(e))
+                    Failed(InterceptedOOMException(e))
                 } catch (e: Exception) {
-                    Failed<Result>(e)
+                    Failed(e)
                 }
 
-                promise.state.getAndSet(newState).complete(newState)
+                complete(promise, pending, newState)
             }
-        }
-    }
-
-    @Synchronized
-    override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
-        val promise = Promise<Result>(Pending())
-        continuations = Node(continuations) {
-            val newState = try {
-                Succeeded(it.continuation())
-            } catch (e: OutOfMemoryError) {
-                Failed<Result>(InterceptedOOMException(e))
-            } catch (e: Exception) {
-                Failed<Result>(e)
-            }
-
-            promise.state.getAndSet(newState).complete(newState)
         }
         return promise
     }
 
     @Synchronized
-    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
+    override fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise<Result>(pending)
+        continuations = Node(continuations) {
+            val newState = try {
+                Succeeded(it.continuation())
+            } catch (e: OutOfMemoryError) {
+                Failed(InterceptedOOMException(e))
+            } catch (e: Exception) {
+                Failed(e)
+            }
+
+            complete(promise, pending, newState)
+        }
+        return promise
+    }
+
+    @Synchronized
+    override fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise<Result>(pending)
         continuations = Node(continuations) {
             executor.execute {
                 try {
                     val task = it.continuation()
-                    task.then(ThenFlattenListener(promise))
+                    task.then(ThenFlattenListener(promise, pending))
                 } catch (e: OutOfMemoryError) {
-                    val newState = Failed<Result>(InterceptedOOMException(e))
-                    promise.state.getAndSet(newState).complete(newState)
+                    complete(promise, pending, Failed(InterceptedOOMException(e)))
                 } catch (e: Exception) {
-                    val newState = Failed<Result>(e)
-                    promise.state.getAndSet(newState).complete(newState)
+                    complete(promise, pending, Failed(e))
                 }
             }
         }
+        return promise
     }
 
     @Synchronized
-    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
+    override fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise<Result>(pending)
         continuations = Node(continuations) {
             try {
                 val task = it.continuation()
-                task.then(ThenFlattenListener(promise))
+                task.then(ThenFlattenListener(promise, pending))
             } catch (e: OutOfMemoryError) {
-                val newState = Failed<Result>(InterceptedOOMException(e))
-                promise.state.getAndSet(newState).complete(newState)
+                complete(promise, pending, Failed(InterceptedOOMException(e)))
             } catch (e: Exception) {
-                val newState = Failed<Result>(e)
-                promise.state.getAndSet(newState).complete(newState)
+                complete(promise, pending, Failed(e))
             }
         }
+        return promise
     }
 
     @Suppress("UNCHECKED_CAST")

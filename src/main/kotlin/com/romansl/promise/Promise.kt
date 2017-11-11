@@ -1,5 +1,6 @@
 package com.romansl.promise
 
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -8,39 +9,42 @@ import java.util.concurrent.atomic.AtomicReference
 
 @Suppress("UNCHECKED_CAST")
 class Promise<out T> internal constructor(initState: State<T>) {
+    internal constructor(failed: Failed) : this(failed as State<T>)
+
     internal val state: AtomicReference<State<*>> = AtomicReference(initState)
 
     fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
-        return (state.get() as State<T>).immediateThen(continuation)
+        return (state.get() as State<T>).then(continuation)
     }
 
     fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
-        val promise = Promise<Result>(Pending())
-        (state.get() as State<T>).then(promise, continuation, executor)
-        return promise
+        return (state.get() as State<T>).then(executor, continuation)
     }
 
     /**
      * Equivalent to: then { ... }.flatten()
      */
     fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
-        val promise = Promise<Result>(Pending())
-        (state.get() as State<T>).immediateAfter(promise, continuation)
-        return promise
+        return (state.get() as State<T>).thenFlatten(continuation)
     }
 
     /**
      * Equivalent to: then(executor) { ... }.flatten()
      */
     fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
-        val promise = Promise<Result>(Pending())
-        (state.get() as State<T>).after(promise, continuation, executor)
-        return promise
+        return (state.get() as State<T>).thenFlatten(executor, continuation)
     }
 
     fun isPending(): Boolean = state.get() is Pending
 
-    inline fun isPending(body: () -> Unit): Promise<T> {
+    fun isFailed(): Boolean = state.get() is Failed
+
+    fun isCancelled(): Boolean {
+        val state = state.get()
+        return state is Failed && state.exception is CancellationException
+    }
+
+    inline fun ifPending(body: () -> Unit): Promise<T> {
         if (isPending()) {
             body()
         }
@@ -49,12 +53,6 @@ class Promise<out T> internal constructor(initState: State<T>) {
     }
 
     fun getResult(): T = (state.get() as Completed<T>).result
-
-    inline fun whenPending(body: () -> Unit) {
-        if (isPending()) {
-            body()
-        }
-    }
 
     fun waitForCompletion(): T {
         val latch = CountDownLatch(1)
@@ -70,19 +68,29 @@ class Promise<out T> internal constructor(initState: State<T>) {
         return (state.get() as Completed<T>).result
     }
 
+    fun cancel() {
+        val state = state.get()
+        if (state is Pending) {
+            complete(this, state, Failed(CancellationException()))
+        }
+    }
+
     companion object {
         @Volatile
         @JvmStatic
         var unhandledErrorListener: ((e: Exception) -> Unit)? = null
 
         @JvmStatic
-        fun <Result> create(): Completion<Result> = Completion(Promise(Pending()))
+        fun <Result> create(): Completion<Result> = Completion()
 
         @JvmStatic
         fun <Result> succeeded(value: Result): Promise<Result> = Promise(Succeeded(value))
 
         @JvmStatic
         fun <Result> failed(error: Exception): Promise<Result> = Promise(Failed(error))
+
+        @JvmStatic
+        fun <Result> cancelled(): Promise<Result> = Promise(Failed(CancellationException()))
 
         @JvmStatic
         fun <Result> call(callable: () -> Result): Promise<Result> {
@@ -159,10 +167,9 @@ class Promise<out T> internal constructor(initState: State<T>) {
 
             promises.forEachIndexed { i, promise ->
                 promise.then {
-                    states.set(i, this)
+                    states[i] = this
 
                     if (count.decrementAndGet() == 0) {
-                        @Suppress("CAST_NEVER_SUCCEEDS")
                         allFinished.setResult(states as Array<Completed<*>>)
                     }
                 }
@@ -175,11 +182,11 @@ class Promise<out T> internal constructor(initState: State<T>) {
 
 fun <T> Promise<T>.thenComplete(completion: Completion<T>) {
     @Suppress("UNCHECKED_CAST")
-    (state.get() as State<T>).immediateThen(ThenFlattenListener(completion.promise))
+    (state.get() as State<T>).then(ThenFlattenListener(completion.promise, completion.pending))
 }
 
 fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
-    val completion = Completion(Promise(Pending<R>()))
+    val completion = Completion<R>()
     then {
         try {
             result.thenComplete(completion)
@@ -190,4 +197,11 @@ fun <R> Promise<Promise<R>>.flatten(): Promise<R> {
         }
     }
     return completion.promise
+}
+
+@Suppress("NOTHING_TO_INLINE")
+internal inline fun complete(promise: Promise<*>, pending: Pending<*>, completed: Completed<*>) {
+    if (promise.state.compareAndSet(pending, completed)) {
+        pending.complete(completed)
+    }
 }

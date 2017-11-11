@@ -1,13 +1,20 @@
 package com.romansl.promise
 
-class Completion<Result> internal constructor(val promise: Promise<Result>) {
+import java.util.concurrent.CancellationException
+
+class Completion<Result> {
+    internal val pending = Pending<Result>()
+    val promise: Promise<Result> = Promise(pending)
+
     fun setResult(src: Result) {
-        val state = Succeeded(src)
-        promise.state.getAndSet(state).complete(state)
+        complete(promise, pending, Succeeded(src))
     }
 
     fun setError(src: Exception) {
-        val state = Failed<Result>(src)
-        promise.state.getAndSet(state).complete(state)
+        complete(promise, pending, Failed(src))
+    }
+
+    fun setCancelled() {
+        complete(promise, pending, Failed(CancellationException()))
     }
 }

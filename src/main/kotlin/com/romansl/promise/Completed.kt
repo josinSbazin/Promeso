@@ -6,7 +6,9 @@ import kotlin.coroutines.experimental.Continuation
 abstract class Completed<out T> : State<T>() {
     abstract val result: T
 
-    override fun complete(newState: Completed<*>) = throw IllegalStateException("Can not complete Completion twice.")
+    override fun complete(newState: Completed<*>) {
+        // no op
+    }
 
     override fun thenContinuation(continuation: Continuation<T>) {
         try {
@@ -30,21 +32,26 @@ abstract class Completed<out T> : State<T>() {
         }
     }
 
-    override fun <Result> then(promise: Promise<Result>, continuation: Completed<T>.() -> Result, executor: Executor) {
+    override fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise(pending)
+
         executor.execute {
             val newState = try {
                 Succeeded(continuation())
             } catch (e: OutOfMemoryError) {
-                Failed<Result>(InterceptedOOMException(e))
+                Failed(InterceptedOOMException(e))
             } catch (e: Exception) {
-                Failed<Result>(e)
+                Failed(e)
             }
 
-            promise.state.getAndSet(newState).complete(newState)
+            complete(promise, pending, newState)
         }
+
+        return promise
     }
 
-    override fun <Result> immediateThen(continuation: Completed<T>.() -> Result): Promise<Result> {
+    override fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
         return try {
             Promise(Succeeded(continuation()))
         } catch (e: OutOfMemoryError) {
@@ -54,31 +61,37 @@ abstract class Completed<out T> : State<T>() {
         }
     }
 
-    override fun <Result> after(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>, executor: Executor) {
+    override fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise(pending)
+
         executor.execute {
             try {
                 val task = continuation()
-                task.then(ThenFlattenListener(promise))
+                task.then(ThenFlattenListener(promise, pending))
             } catch (e: OutOfMemoryError) {
-                val newState = Failed<Result>(InterceptedOOMException(e))
-                promise.state.getAndSet(newState).complete(newState)
+                complete(promise, pending, Failed(InterceptedOOMException(e)))
             } catch (e: Exception) {
-                val newState = Failed<Result>(e)
-                promise.state.getAndSet(newState).complete(newState)
+                complete(promise, pending, Failed(e))
             }
         }
+
+        return promise
     }
 
-    override fun <Result> immediateAfter(promise: Promise<Result>, continuation: Completed<T>.() -> Promise<Result>) {
+    override fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
+        val pending = Pending<Result>()
+        val promise = Promise(pending)
+
         try {
             val task = continuation()
-            task.then(ThenFlattenListener(promise))
+            task.then(ThenFlattenListener(promise, pending))
         } catch (e: OutOfMemoryError) {
-            val newState = Failed<Result>(InterceptedOOMException(e))
-            promise.state.getAndSet(newState).complete(newState)
+            complete(promise, pending, Failed(InterceptedOOMException(e)))
         } catch (e: Exception) {
-            val newState = Failed<Result>(e)
-            promise.state.getAndSet(newState).complete(newState)
+            complete(promise, pending, Failed(e))
         }
+
+        return promise
     }
 }

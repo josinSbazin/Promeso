@@ -6,11 +6,11 @@ import java.util.concurrent.Executor
 import kotlin.coroutines.experimental.*
 
 internal class PromiseContinuation<T>(override val context: CoroutineContext) : Continuation<T> {
-    internal val promise: Promise<T> = Promise(Pending())
+    private val pending = Pending<T>()
+    internal val promise: Promise<T> = Promise(pending)
 
     override fun resume(value: T) {
-        val state = Succeeded(value)
-        promise.state.getAndSet(state).complete(state)
+        complete(promise, pending, Succeeded(value))
     }
 
     override fun resumeWithException(exception: Throwable) {
@@ -20,8 +20,7 @@ internal class PromiseContinuation<T>(override val context: CoroutineContext) : 
         } else {
             RuntimeException(exception)
         }
-        val state = Failed<T>(e)
-        promise.state.getAndSet(state).complete(state)
+        complete(promise, pending, Failed(e))
     }
 }
 
