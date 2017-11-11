@@ -205,3 +205,14 @@ internal inline fun complete(promise: Promise<*>, pending: Pending<*>, completed
         pending.complete(completed)
     }
 }
+
+// Сразу устанавливает промис в разрешенное состояние,
+// но при вызове result тред будет заблокирован до тех пор,
+// пока не выполнится body. Не совсем то, что я хотел.
+internal inline fun <Result> complete(promise: Promise<Result>, pending: Pending<Result>, body: () -> Completed<Result>) {
+    val completed = CompletedLazy<Result>()
+    if (promise.state.compareAndSet(pending, completed)) {
+        completed.resolveState(body())
+        pending.complete(completed)
+    }
+}

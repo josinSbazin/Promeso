@@ -37,18 +37,18 @@ internal class Pending<out T>: State<T>() {
     @Synchronized
     override fun <Result> then(executor: Executor, continuation: Completed<T>.() -> Result): Promise<Result> {
         val pending = Pending<Result>()
-        val promise = Promise<Result>(pending)
+        val promise = Promise(pending)
         continuations = Node(continuations) {
             executor.execute {
-                val newState = try {
-                    Succeeded(it.continuation())
-                } catch (e: OutOfMemoryError) {
-                    Failed(InterceptedOOMException(e))
-                } catch (e: Exception) {
-                    Failed(e)
+                complete(promise, pending) {
+                    try {
+                        Succeeded(it.continuation())
+                    } catch (e: OutOfMemoryError) {
+                        Failed(InterceptedOOMException(e)) as Completed<Result>
+                    } catch (e: Exception) {
+                        Failed(e) as Completed<Result>
+                    }
                 }
-
-                complete(promise, pending, newState)
             }
         }
         return promise
@@ -57,17 +57,17 @@ internal class Pending<out T>: State<T>() {
     @Synchronized
     override fun <Result> then(continuation: Completed<T>.() -> Result): Promise<Result> {
         val pending = Pending<Result>()
-        val promise = Promise<Result>(pending)
+        val promise = Promise(pending)
         continuations = Node(continuations) {
-            val newState = try {
-                Succeeded(it.continuation())
-            } catch (e: OutOfMemoryError) {
-                Failed(InterceptedOOMException(e))
-            } catch (e: Exception) {
-                Failed(e)
+            complete(promise, pending) {
+                try {
+                    Succeeded(it.continuation())
+                } catch (e: OutOfMemoryError) {
+                    Failed(InterceptedOOMException(e)) as Completed<Result>
+                } catch (e: Exception) {
+                    Failed(e) as Completed<Result>
+                }
             }
-
-            complete(promise, pending, newState)
         }
         return promise
     }
@@ -75,7 +75,7 @@ internal class Pending<out T>: State<T>() {
     @Synchronized
     override fun <Result> thenFlatten(executor: Executor, continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val pending = Pending<Result>()
-        val promise = Promise<Result>(pending)
+        val promise = Promise(pending)
         continuations = Node(continuations) {
             executor.execute {
                 try {
@@ -94,7 +94,7 @@ internal class Pending<out T>: State<T>() {
     @Synchronized
     override fun <Result> thenFlatten(continuation: Completed<T>.() -> Promise<Result>): Promise<Result> {
         val pending = Pending<Result>()
-        val promise = Promise<Result>(pending)
+        val promise = Promise(pending)
         continuations = Node(continuations) {
             try {
                 val task = it.continuation()
