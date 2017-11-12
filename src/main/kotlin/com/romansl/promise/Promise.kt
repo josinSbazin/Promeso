@@ -206,13 +206,26 @@ internal inline fun complete(promise: Promise<*>, pending: Pending<*>, completed
     }
 }
 
-// Сразу устанавливает промис в разрешенное состояние,
-// но при вызове result тред будет заблокирован до тех пор,
-// пока не выполнится body. Не совсем то, что я хотел.
-internal inline fun <Result> complete(promise: Promise<Result>, pending: Pending<Result>, body: () -> Completed<Result>) {
-    val completed = CompletedLazy<Result>()
-    if (promise.state.compareAndSet(pending, completed)) {
-        completed.resolveState(body())
-        pending.complete(completed)
+internal inline fun <Result> complete(promise: Promise<Result>, body: () -> Completed<Result>) {
+    val pending = promise.state.get()
+    if (pending is Pending) {
+        val completed = body()
+        if (promise.state.compareAndSet(pending, completed)) {
+            pending.complete(completed)
+        }
+    }
+}
+
+internal inline fun <Result> completeFlatten(promise: Promise<Result>, body: () -> Completed<Promise<Result>>) {
+    val pending = promise.state.get()
+    if (pending is Pending) {
+        val completed = body()
+        if (completed is Succeeded) {
+            completed.result.then(ThenFlattenListener(promise, pending))
+        } else {
+            if (promise.state.compareAndSet(pending, completed)) {
+                pending.complete(completed)
+            }
+        }
     }
 }

@@ -40,7 +40,7 @@ internal class Pending<out T>: State<T>() {
         val promise = Promise(pending)
         continuations = Node(continuations) {
             executor.execute {
-                complete(promise, pending) {
+                complete(promise) {
                     try {
                         Succeeded(it.continuation())
                     } catch (e: OutOfMemoryError) {
@@ -59,7 +59,7 @@ internal class Pending<out T>: State<T>() {
         val pending = Pending<Result>()
         val promise = Promise(pending)
         continuations = Node(continuations) {
-            complete(promise, pending) {
+            complete(promise) {
                 try {
                     Succeeded(it.continuation())
                 } catch (e: OutOfMemoryError) {
@@ -78,13 +78,14 @@ internal class Pending<out T>: State<T>() {
         val promise = Promise(pending)
         continuations = Node(continuations) {
             executor.execute {
-                try {
-                    val task = it.continuation()
-                    task.then(ThenFlattenListener(promise, pending))
-                } catch (e: OutOfMemoryError) {
-                    complete(promise, pending, Failed(InterceptedOOMException(e)))
-                } catch (e: Exception) {
-                    complete(promise, pending, Failed(e))
+                completeFlatten(promise) {
+                    try {
+                        Succeeded(it.continuation())
+                    } catch (e: OutOfMemoryError) {
+                        Failed(InterceptedOOMException(e)) as Completed<Promise<Result>>
+                    } catch (e: Exception) {
+                        Failed(e) as Completed<Promise<Result>>
+                    }
                 }
             }
         }
@@ -96,13 +97,14 @@ internal class Pending<out T>: State<T>() {
         val pending = Pending<Result>()
         val promise = Promise(pending)
         continuations = Node(continuations) {
-            try {
-                val task = it.continuation()
-                task.then(ThenFlattenListener(promise, pending))
-            } catch (e: OutOfMemoryError) {
-                complete(promise, pending, Failed(InterceptedOOMException(e)))
-            } catch (e: Exception) {
-                complete(promise, pending, Failed(e))
+            completeFlatten(promise) {
+                try {
+                    Succeeded(it.continuation())
+                } catch (e: OutOfMemoryError) {
+                    Failed(InterceptedOOMException(e)) as Completed<Promise<Result>>
+                } catch (e: Exception) {
+                    Failed(e) as Completed<Promise<Result>>
+                }
             }
         }
         return promise
